@@ -36,3 +36,9 @@ After pushing, publish the initial container through the existing manual Docker 
 The `check-assets` job in `.github/workflows/release.yml` now explicitly grants `contents: read` and `actions: write`, allowing it to dispatch the existing asset update workflow when caches are missing. No other job permissions were expanded.
 
 Verified on GitHub: [Release run 41213710923](https://github.com/uJZk/Xray-core/actions/runs/41213710923) successfully completed the asset dispatch step; [dispatched asset update 41213720858](https://github.com/uJZk/Xray-core/actions/runs/41213720858) completed successfully. The original HTTP 403 is resolved. The permission fix commit is `1fd9cd57c3cd64c6eb95cc9bbed9c76a0f4f115a`.
+
+## Publication completed
+
+[Container run 41213300732](https://github.com/uJZk/Xray-core/actions/runs/41213300732) succeeded, including both architecture builds, manifest publication, and image inspection. Published `ghcr.io/ujzk/xray-core:26.10.31-domain-stats-b1d1eebf` and `ghcr.io/ujzk/xray-core:latest`. Runtime code is from implementation commit `b1d1eebf`; subsequent commits only change workflows/documentation.
+
+The initial full test run failed because `resources/geoip.dat` and `resources/geosite.dat` were absent before asset cache initialization. After the successful asset update, failed jobs of [test run 41213292216](https://github.com/uJZk/Xray-core/actions/runs/41213292216) were re-requested; check its latest attempt before claiming full CI success. Local targeted tests and format/protobuf checks passed. The old failed Release run remains historical; the newer Release run confirms resource dispatch now succeeds.
