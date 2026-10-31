@@ -22,3 +22,11 @@
 Default branch is `main`. Actions settings must allow workflows to create PRs, and merge commits must be enabled. Current CLI credentials cannot read Actions administration settings (HTTP 403); verify these settings through a repository administrator if automation is denied.
 
 After pushing, publish the initial container through the existing manual Docker workflow, since the current upstream release is already contained in this fork and the sync workflow will skip it. Monitor the multi-architecture build in Actions. Subsequent new upstream stable releases use the automatic sync and publication path. No service/container host deployment is configured in this repository.
+
+## GitHub execution results
+
+- Implementation commit: `b1d1eebf507d0368e2211957f5dc747d8a44ab5f`, fast-forwarded to `main` and pushed; temporary `work` branch removed.
+- [Upstream sync run](https://github.com/uJZk/Xray-core/actions/runs/41213320841) succeeded, confirming `v26.10.31` is already included. Real PR creation/merge remains to be exercised by a future release.
+- [Initial container publication](https://github.com/uJZk/Xray-core/actions/runs/41213300732) was dispatched for the implementation commit with tag `26.10.31-domain-stats-b1d1eebf` and `latest=true`.
+- GitHub format/protobuf checks passed on the implementation commit.
+- Existing [Build and Release run](https://github.com/uJZk/Xray-core/actions/runs/41213292196) failed in its unchanged `check-assets` job: empty initial cache led to a workflow dispatch denied with HTTP 403, requiring `actions: write`. This pre-existing workflow issue is outside this session's change scope.
