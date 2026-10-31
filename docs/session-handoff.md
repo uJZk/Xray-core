@@ -29,4 +29,8 @@ After pushing, publish the initial container through the existing manual Docker 
 - [Upstream sync run](https://github.com/uJZk/Xray-core/actions/runs/41213320841) succeeded, confirming `v26.10.31` is already included. Real PR creation/merge remains to be exercised by a future release.
 - [Initial container publication](https://github.com/uJZk/Xray-core/actions/runs/41213300732) was dispatched for the implementation commit with tag `26.10.31-domain-stats-b1d1eebf` and `latest=true`.
 - GitHub format/protobuf checks passed on the implementation commit.
-- Existing [Build and Release run](https://github.com/uJZk/Xray-core/actions/runs/41213292196) failed in its unchanged `check-assets` job: empty initial cache led to a workflow dispatch denied with HTTP 403, requiring `actions: write`. This pre-existing workflow issue is outside this session's change scope.
+- Existing [Build and Release run](https://github.com/uJZk/Xray-core/actions/runs/41213292196) failed in its unchanged `check-assets` job: empty initial cache led to a workflow dispatch denied with HTTP 403, requiring `actions: write`. Subsequently fixed at the user's request by granting `actions: write` only to the `check-assets` job; rerun verification follows below.
+
+## Release resource dispatch permission fix
+
+The `check-assets` job in `.github/workflows/release.yml` now explicitly grants `contents: read` and `actions: write`, allowing it to dispatch the existing asset update workflow when caches are missing. No other job permissions were expanded.
