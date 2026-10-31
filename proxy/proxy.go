@@ -769,7 +769,6 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 		}
 		if splice {
 			errors.LogDebug(ctx, "CopyRawConn splice")
-			statWriter, _ := writer.(*dispatcher.SizeStatWriter)
 			//runtime.Gosched() // necessary
 			timer.SetTimeout(24 * time.Hour) // prevent leak, just in case
 			if inTimer != nil {
@@ -782,8 +781,9 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 			if writeCounter != nil {
 				writeCounter.Add(w) // inbound stats
 			}
-			if statWriter != nil {
-				statWriter.Counter.Add(w) // user stats
+			// Splice bypasses WriteMultiBuffer; update every nested counter.
+			for sw, ok := writer.(*dispatcher.SizeStatWriter); ok; sw, ok = sw.Writer.(*dispatcher.SizeStatWriter) {
+				sw.Counter.Add(w)
 			}
 			if err != nil && errors.Cause(err) != io.EOF {
 				return err

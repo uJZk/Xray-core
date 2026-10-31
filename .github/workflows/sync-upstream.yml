@@ -1,0 +1,50 @@
+name: Sync upstream stable release
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: sync-upstream-stable
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    # This automation belongs to forks, not the upstream repository.
+    if: github.repository != 'XTLS/Xray-core'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      merged: ${{ steps.sync.outputs.merged }}
+      tag: ${{ steps.sync.outputs.tag }}
+      sha: ${{ steps.sync.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - name: Create and merge upstream PR
+        id: sync
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const sync = require('./.github/scripts/sync-upstream.cjs');
+            await sync({github, context, core});
+
+  publish:
+    needs: sync
+    if: needs.sync.outputs.merged == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker.yml
+    with:
+      tag: ${{ needs.sync.outputs.tag }}
+      latest: true
+      ref: ${{ needs.sync.outputs.sha }}
