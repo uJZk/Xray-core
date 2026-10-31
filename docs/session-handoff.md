@@ -34,3 +34,5 @@ After pushing, publish the initial container through the existing manual Docker 
 ## Release resource dispatch permission fix
 
 The `check-assets` job in `.github/workflows/release.yml` now explicitly grants `contents: read` and `actions: write`, allowing it to dispatch the existing asset update workflow when caches are missing. No other job permissions were expanded.
+
+Verified on GitHub: [Release run 41213710923](https://github.com/uJZk/Xray-core/actions/runs/41213710923) successfully completed the asset dispatch step; [dispatched asset update 41213720858](https://github.com/uJZk/Xray-core/actions/runs/41213720858) completed successfully. The original HTTP 403 is resolved. The permission fix commit is `1fd9cd57c3cd64c6eb95cc9bbed9c76a0f4f115a`.
