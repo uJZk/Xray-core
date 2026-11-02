@@ -18,6 +18,7 @@ func DefaultLogConfig() *log.Config {
 type LogConfig struct {
 	AccessLog   string `json:"access"`
 	ErrorLog    string `json:"error"`
+	TrafficLog  string `json:"traffic"`
 	LogLevel    string `json:"loglevel"`
 	DNSLog      bool   `json:"dnsLog"`
 	MaskAddress string `json:"maskAddress"`
@@ -28,9 +29,10 @@ func (v *LogConfig) Build() *log.Config {
 		return nil
 	}
 	config := &log.Config{
-		ErrorLogType:  log.LogType_Console,
-		AccessLogType: log.LogType_Console,
-		EnableDnsLog:  v.DNSLog,
+		ErrorLogType:   log.LogType_Console,
+		AccessLogType:  log.LogType_Console,
+		EnableDnsLog:   v.DNSLog,
+		TrafficLogPath: v.TrafficLog,
 	}
 
 	if v.AccessLog == "none" {

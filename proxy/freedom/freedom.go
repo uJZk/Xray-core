@@ -15,6 +15,7 @@ import (
 	"github.com/xtls/xray-core/common/dice"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/geodata"
+	"github.com/xtls/xray-core/common/log"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/platform"
 	"github.com/xtls/xray-core/common/retry"
@@ -361,6 +362,14 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		if rule := h.matchFinalRule(remoteDest.Network, remoteDest.Address, remoteDest.Port, defaultRule); rule != nil && rule.action == RuleAction_Block {
 			conn.Close()
 			return h.blackhole(ctx, input, output, rule, &remoteDest)
+		}
+	}
+
+	// Only direct TCP connections provide a reliable remote destination IP here.
+	if traffic := log.TrafficFromContext(ctx); traffic != nil && destination.Network == net.Network_TCP && !h.usesDialerProxy {
+		remote := net.DestinationFromAddr(conn.RemoteAddr())
+		if remote.Address != nil && remote.Address.Family().IsIP() {
+			traffic.SetIP(remote.Address.IP().String())
 		}
 	}
 

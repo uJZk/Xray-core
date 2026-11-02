@@ -75,16 +75,17 @@ func (LogType) EnumDescriptor() ([]byte, []int) {
 }
 
 type Config struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ErrorLogType  LogType                `protobuf:"varint,1,opt,name=error_log_type,json=errorLogType,proto3,enum=xray.app.log.LogType" json:"error_log_type,omitempty"`
-	ErrorLogLevel log.Severity           `protobuf:"varint,2,opt,name=error_log_level,json=errorLogLevel,proto3,enum=xray.common.log.Severity" json:"error_log_level,omitempty"`
-	ErrorLogPath  string                 `protobuf:"bytes,3,opt,name=error_log_path,json=errorLogPath,proto3" json:"error_log_path,omitempty"`
-	AccessLogType LogType                `protobuf:"varint,4,opt,name=access_log_type,json=accessLogType,proto3,enum=xray.app.log.LogType" json:"access_log_type,omitempty"`
-	AccessLogPath string                 `protobuf:"bytes,5,opt,name=access_log_path,json=accessLogPath,proto3" json:"access_log_path,omitempty"`
-	EnableDnsLog  bool                   `protobuf:"varint,6,opt,name=enable_dns_log,json=enableDnsLog,proto3" json:"enable_dns_log,omitempty"`
-	MaskAddress   string                 `protobuf:"bytes,7,opt,name=mask_address,json=maskAddress,proto3" json:"mask_address,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	ErrorLogType   LogType                `protobuf:"varint,1,opt,name=error_log_type,json=errorLogType,proto3,enum=xray.app.log.LogType" json:"error_log_type,omitempty"`
+	ErrorLogLevel  log.Severity           `protobuf:"varint,2,opt,name=error_log_level,json=errorLogLevel,proto3,enum=xray.common.log.Severity" json:"error_log_level,omitempty"`
+	ErrorLogPath   string                 `protobuf:"bytes,3,opt,name=error_log_path,json=errorLogPath,proto3" json:"error_log_path,omitempty"`
+	AccessLogType  LogType                `protobuf:"varint,4,opt,name=access_log_type,json=accessLogType,proto3,enum=xray.app.log.LogType" json:"access_log_type,omitempty"`
+	AccessLogPath  string                 `protobuf:"bytes,5,opt,name=access_log_path,json=accessLogPath,proto3" json:"access_log_path,omitempty"`
+	EnableDnsLog   bool                   `protobuf:"varint,6,opt,name=enable_dns_log,json=enableDnsLog,proto3" json:"enable_dns_log,omitempty"`
+	MaskAddress    string                 `protobuf:"bytes,7,opt,name=mask_address,json=maskAddress,proto3" json:"mask_address,omitempty"`
+	TrafficLogPath string                 `protobuf:"bytes,8,opt,name=traffic_log_path,json=trafficLogPath,proto3" json:"traffic_log_path,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Config) Reset() {
@@ -166,11 +167,18 @@ func (x *Config) GetMaskAddress() string {
 	return ""
 }
 
+func (x *Config) GetTrafficLogPath() string {
+	if x != nil {
+		return x.TrafficLogPath
+	}
+	return ""
+}
+
 var File_app_log_config_proto protoreflect.FileDescriptor
 
 const file_app_log_config_proto_rawDesc = "" +
 	"\n" +
-	"\x14app/log/config.proto\x12\fxray.app.log\x1a\x14common/log/log.proto\"\xde\x02\n" +
+	"\x14app/log/config.proto\x12\fxray.app.log\x1a\x14common/log/log.proto\"\x88\x03\n" +
 	"\x06Config\x12;\n" +
 	"\x0eerror_log_type\x18\x01 \x01(\x0e2\x15.xray.app.log.LogTypeR\ferrorLogType\x12A\n" +
 	"\x0ferror_log_level\x18\x02 \x01(\x0e2\x19.xray.common.log.SeverityR\rerrorLogLevel\x12$\n" +
@@ -178,7 +186,8 @@ const file_app_log_config_proto_rawDesc = "" +
 	"\x0faccess_log_type\x18\x04 \x01(\x0e2\x15.xray.app.log.LogTypeR\raccessLogType\x12&\n" +
 	"\x0faccess_log_path\x18\x05 \x01(\tR\raccessLogPath\x12$\n" +
 	"\x0eenable_dns_log\x18\x06 \x01(\bR\fenableDnsLog\x12!\n" +
-	"\fmask_address\x18\a \x01(\tR\vmaskAddress*5\n" +
+	"\fmask_address\x18\a \x01(\tR\vmaskAddress\x12(\n" +
+	"\x10traffic_log_path\x18\b \x01(\tR\x0etrafficLogPath*5\n" +
 	"\aLogType\x12\b\n" +
 	"\x04None\x10\x00\x12\v\n" +
 	"\aConsole\x10\x01\x12\b\n" +

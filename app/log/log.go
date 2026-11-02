@@ -19,6 +19,7 @@ type Instance struct {
 	config       *Config
 	accessLogger log.Handler
 	errorLogger  log.Handler
+	traffic      *trafficLogger
 	active       bool
 	dns          bool
 	mask4        int
@@ -94,6 +95,16 @@ func (g *Instance) startInternal() error {
 	if err := g.initErrorLogger(); err != nil {
 		return errors.New("failed to initialize error logger").Base(err)
 	}
+	if g.config.TrafficLogPath != "" {
+		var err error
+		g.traffic, err = newTrafficLogger(g.config.TrafficLogPath)
+		if err != nil {
+			g.active = false
+			common.Close(g.accessLogger)
+			common.Close(g.errorLogger)
+			return errors.New("failed to initialize traffic logger").Base(err)
+		}
+	}
 
 	return nil
 }
@@ -149,6 +160,15 @@ func (g *Instance) Severity() log.Severity {
 func (g *Instance) Close() error {
 	errors.LogDebug(context.Background(), "Logger closing")
 
+	// Stop the worker outside the logger lock: its error reporting uses Handle.
+	g.RLock()
+	traffic := g.traffic
+	g.RUnlock()
+	var trafficErr error
+	if traffic != nil {
+		trafficErr = traffic.Close()
+	}
+
 	g.Lock()
 	defer g.Unlock()
 
@@ -164,7 +184,7 @@ func (g *Instance) Close() error {
 	common.Close(g.errorLogger)
 	g.errorLogger = nil
 
-	return nil
+	return trafficErr
 }
 
 func ParseMaskAddress(c string) (int, int, error) {

@@ -783,7 +783,7 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 			}
 			// Splice bypasses WriteMultiBuffer; update every nested counter.
 			for sw, ok := writer.(*dispatcher.SizeStatWriter); ok; sw, ok = sw.Writer.(*dispatcher.SizeStatWriter) {
-				sw.Counter.Add(w)
+				sw.AddCount(w)
 			}
 			if err != nil && errors.Cause(err) != io.EOF {
 				return err

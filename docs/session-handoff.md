@@ -42,3 +42,16 @@ Verified on GitHub: [Release run 41213710923](https://github.com/uJZk/Xray-core/
 [Container run 41213300732](https://github.com/uJZk/Xray-core/actions/runs/41213300732) succeeded, including both architecture builds, manifest publication, and image inspection. Published `ghcr.io/ujzk/xray-core:26.10.31-domain-stats-b1d1eebf` and `ghcr.io/ujzk/xray-core:latest`. Runtime code is from implementation commit `b1d1eebf`; subsequent commits only change workflows/documentation.
 
 The initial full test run failed because `resources/geoip.dat` and `resources/geosite.dat` were absent before asset cache initialization. After the successful asset update, failed jobs of [test run 41213292216](https://github.com/uJZk/Xray-core/actions/runs/41213292216) were re-requested; check its latest attempt before claiming full CI success. Local targeted tests and format/protobuf checks passed. The old failed Release run remains historical; the newer Release run confirms resource dispatch now succeeds.
+
+## Traffic CSV — 2026-11-02
+
+Implemented optional `log.traffic` append-only CSV with the agreed six fields: `interval_start,interval_end,target,target_ip,uplink_bytes,downlink_bytes`. `target_sld` was explicitly removed. A background logger groups independent payload deltas by target/IP every minute and flushes on logger close. It shares the existing dispatcher/splice accounting hooks, not resettable Stats API values; no StatsService configuration or Python collector is required. Direct freedom TCP supplies the actual remote IP; unknown final IPs remain empty. See [domain-traffic.md](domain-traffic.md) for paths, permissions, append/retry/rotation behavior and limitations.
+
+Verification completed:
+
+- Targeted tests passed for `common/log`, `app/log`, `app/dispatcher`, `proxy`, `proxy/freedom`, and `infra/conf`.
+- Race checks passed for `common/log`, `app/log`, `app/dispatcher`, `proxy/freedom`, and `infra/conf`.
+- Built the complete binary and exercised local VLESS Vision + TLS with fallback: real splice confirmed in debug logs; domain and IPv4 requests each transferred a 1,120,000-byte HTTPS body and recorded the expected target/IP. No Stats config was enabled. Fallback-only requests produced no rows; shutdown flushed pending deltas, and restarting appended rows without repeating the header.
+- Unit tests cover independent CSV counting across API counter reset, logger restart for existing recorders, concurrent updates, failed-write retry without loss/duplicate output, rotation, invalid headers and partial trailing lines, and protobuf/JSON config wiring.
+
+CSV publication was requested with tie-up, explicitly authorizing commit, merge, push and deployment. Final targeted race, formatting, protobuf generation, and whitespace checks passed again. All 15 changed/new files were verified as belonging to this CSV implementation; local HEAD and origin/main both matched d8e1f9ee before committing. The Docker workflow will build the publication artifact from the committed source. See the publication result below when available.
