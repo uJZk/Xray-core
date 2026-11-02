@@ -55,3 +55,10 @@ Verification completed:
 - Unit tests cover independent CSV counting across API counter reset, logger restart for existing recorders, concurrent updates, failed-write retry without loss/duplicate output, rotation, invalid headers and partial trailing lines, and protobuf/JSON config wiring.
 
 CSV publication was requested with tie-up, explicitly authorizing commit, merge, push and deployment. Final targeted race, formatting, protobuf generation, and whitespace checks passed again. All 15 changed/new files were verified as belonging to this CSV implementation; local HEAD and origin/main both matched d8e1f9ee before committing. The Docker workflow will build the publication artifact from the committed source. See the publication result below when available.
+
+## Traffic CSV continuity and network — 2026-11-02
+
+- CSV now includes a `network` field from the target transport (e.g. `tcp` or `udp`). Consecutive intervals are merged only when target, target IP, and network match and the old end equals the new start. Gaps and distinct networks remain separate. Merging rewrites the file atomically and may copy a large history; rotate as needed.
+- The seven-column format intentionally does not migrate older six-column CSV files. Rotate the old file or use a new path before upgrading, and update any CSV readers for the extra column. See [domain-traffic.md](domain-traffic.md).
+- Built `./main`; race tests passed for `common/log`, `app/log`, `app/dispatcher`, `proxy`, `proxy/freedom`, and `infra/conf`. Coverage includes network separation, consecutive intervals, gaps, old-header rejection, retry and rotation.
+- User requested publication of a new container image and explicitly declined a GitHub release. Use the Docker workflow against the exact pushed commit, publishing a unique tag and `latest`; check the workflow and image before claiming publication. No host deployment is configured.

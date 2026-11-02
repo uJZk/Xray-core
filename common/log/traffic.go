@@ -40,10 +40,10 @@ func TrafficFromContext(ctx context.Context) *Traffic {
 }
 
 // TrackTraffic binds the active logger's optional recorder to a dispatch.
-func TrackTraffic(ctx context.Context, target string) (context.Context, *Traffic) {
+func TrackTraffic(ctx context.Context, target, network string) (context.Context, *Traffic) {
 	if h := logHandler.Load(); h != nil {
-		if recorder, ok := (*h).(interface{ NewTraffic(string) *Traffic }); ok {
-			if t := recorder.NewTraffic(target); t != nil {
+		if recorder, ok := (*h).(interface{ NewTraffic(string, string) *Traffic }); ok {
+			if t := recorder.NewTraffic(target, network); t != nil {
 				return context.WithValue(ctx, trafficContextKey{}, t), t
 			}
 		}

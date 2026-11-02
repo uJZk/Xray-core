@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"sync"
@@ -17,10 +18,10 @@ import (
 	clog "github.com/xtls/xray-core/common/log"
 )
 
-var trafficHeader = []string{"interval_start", "interval_end", "target", "target_ip", "uplink_bytes", "downlink_bytes"}
+var trafficHeader = []string{"interval_start", "interval_end", "target", "target_ip", "uplink_bytes", "downlink_bytes", "network"}
 
 type (
-	trafficKey   struct{ target, ip string }
+	trafficKey   struct{ target, ip, network string }
 	trafficBytes struct{ up, down int64 }
 )
 
@@ -93,14 +94,17 @@ func (t *trafficLogger) flush() error {
 		if keys[i].target != keys[j].target {
 			return keys[i].target < keys[j].target
 		}
-		return keys[i].ip < keys[j].ip
+		if keys[i].ip != keys[j].ip {
+			return keys[i].ip < keys[j].ip
+		}
+		return keys[i].network < keys[j].network
 	})
 	rows := make([][]string, 0, len(keys))
 	for _, key := range keys {
 		n := pending[key]
-		rows = append(rows, []string{start.UTC().Format(time.RFC3339Nano), end.UTC().Format(time.RFC3339Nano), key.target, key.ip, strconv.FormatInt(n.up, 10), strconv.FormatInt(n.down, 10)})
+		rows = append(rows, []string{start.UTC().Format(time.RFC3339Nano), end.UTC().Format(time.RFC3339Nano), key.target, key.ip, strconv.FormatInt(n.up, 10), strconv.FormatInt(n.down, 10), key.network})
 	}
-	if err := appendTraffic(t.path, rows); err != nil {
+	if err := mergeTraffic(t.path, rows); err != nil {
 		// Keep the old interval and add back this batch for the next attempt.
 		t.mu.Lock()
 		t.start = start
@@ -114,6 +118,119 @@ func (t *trafficLogger) flush() error {
 		return err
 	}
 	return nil
+}
+
+// Merge only records ending at the start of this batch. Replacing the file
+// atomically keeps a failed rewrite from destroying already persisted totals.
+func mergeTraffic(path string, rows [][]string) error {
+	resolved, err := filepath.EvalSymlinks(path)
+	if os.IsNotExist(err) {
+		return appendTraffic(path, rows) // A rotated log starts a new history.
+	}
+	if err != nil {
+		return err
+	}
+	f, err := os.Open(resolved)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if info.Size() == 0 {
+		return appendTraffic(path, rows)
+	}
+	var last [1]byte
+	if _, err = f.ReadAt(last[:], info.Size()-1); err != nil {
+		return err
+	}
+	if last[0] != '\n' {
+		return fmt.Errorf("traffic CSV ends with an incomplete record")
+	}
+	r := csv.NewReader(f)
+	header, err := r.Read()
+	if err != nil {
+		return err
+	}
+	if len(header) != len(trafficHeader) {
+		return fmt.Errorf("incompatible traffic CSV header")
+	}
+	for i := range header {
+		if header[i] != trafficHeader[i] {
+			return fmt.Errorf("incompatible traffic CSV header")
+		}
+	}
+
+	tmp, err := os.CreateTemp(filepath.Dir(resolved), ".traffic-*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	defer tmp.Close()
+	if err := tmp.Chmod(info.Mode().Perm()); err != nil {
+		return err
+	}
+	w := csv.NewWriter(tmp)
+	if err := w.Write(header); err != nil {
+		return err
+	}
+	byKey := make(map[trafficKey]int, len(rows))
+	for i, row := range rows {
+		byKey[trafficKey{row[2], row[3], row[6]}] = i
+	}
+	merged := false
+	for {
+		row, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		key := trafficKey{row[2], row[3], row[6]}
+		if i, ok := byKey[key]; ok && row[1] == rows[i][0] {
+			for _, col := range []int{4, 5} {
+				old, err := strconv.ParseInt(row[col], 10, 64)
+				if err != nil || old < 0 {
+					return fmt.Errorf("invalid traffic byte count %q", row[col])
+				}
+				added, err := strconv.ParseInt(rows[i][col], 10, 64)
+				if err != nil || added < 0 || old > int64(^uint64(0)>>1)-added {
+					return fmt.Errorf("traffic byte count overflow")
+				}
+				row[col] = strconv.FormatInt(old+added, 10)
+			}
+			row[1] = rows[i][1]
+			delete(byKey, key)
+			merged = true
+		}
+		if err := w.Write(row); err != nil {
+			return err
+		}
+	}
+	if !merged {
+		return appendTraffic(path, rows)
+	}
+	for _, row := range rows {
+		if _, ok := byKey[trafficKey{row[2], row[3], row[6]}]; ok {
+			if err := w.Write(row); err != nil {
+				return err
+			}
+		}
+	}
+	w.Flush()
+	if err := w.Error(); err != nil {
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), resolved)
 }
 
 func (t *trafficLogger) Close() error {
@@ -195,7 +312,7 @@ func appendTraffic(path string, rows [][]string) (err error) {
 }
 
 // NewTraffic is discovered through the common logger's optional recorder API.
-func (g *Instance) NewTraffic(target string) *clog.Traffic {
+func (g *Instance) NewTraffic(target, network string) *clog.Traffic {
 	g.RLock()
 	defer g.RUnlock()
 	if !g.active || g.traffic == nil {
@@ -210,7 +327,7 @@ func (g *Instance) NewTraffic(target string) *clog.Traffic {
 		g.RLock()
 		defer g.RUnlock()
 		if g.active && g.traffic != nil {
-			g.traffic.record(trafficKey{target, ip}, up, down)
+			g.traffic.record(trafficKey{target, ip, network}, up, down)
 		}
 	})
 }

@@ -59,10 +59,39 @@ func TestTrafficCSVIndependentOfStats(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(rows) != 2 || strings.Join(rows[1][2:], ",") != "example.com,192.0.2.1,5,8" {
+			if len(rows) != 2 || strings.Join(rows[1][2:], ",") != "example.com,192.0.2.1,5,8,tcp" {
 				t.Fatal(rows)
 			}
 		})
+	}
+}
+
+func TestTrafficCSVNetwork(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "traffic.csv")
+	logger, err := applog.New(context.Background(), &applog.Config{TrafficLogPath: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, dest := range []net.Destination{
+		net.TCPDestination(net.ParseAddress("192.0.2.1"), 443),
+		net.UDPDestination(net.ParseAddress("192.0.2.1"), 443),
+	} {
+		link := &transport.Link{Reader: buf.NewReader(strings.NewReader("hello")), Writer: buf.Discard}
+		wrapDomainStats(context.Background(), stats.NoopManager{}, link, dest)
+		mb, _ := link.Reader.ReadMultiBuffer()
+		buf.ReleaseMulti(mb)
+	}
+	if err := logger.Close(); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	rows, err := csv.NewReader(f).ReadAll()
+	if err != nil || len(rows) != 3 || rows[1][6] != "tcp" || rows[2][6] != "udp" {
+		t.Fatalf("rows %v: %v", rows, err)
 	}
 }
 

@@ -33,7 +33,7 @@ VLESS fallback 不经过 dispatcher，也没有代理目标域名，故不计入
 - [XTLS/Xray-core SizeStatWriter](https://github.com/XTLS/Xray-core/blob/main/app/dispatcher/stats.go)：复用其 Stats counter / payload 统计方式。
 - [XTLS/Xray-core CopyRawConnIfExist](https://github.com/XTLS/Xray-core/blob/main/proxy/proxy.go)：沿用 splice 完成后补记字节数的方式，并支持嵌套域名／用户 writer。
 
-## 直接追加流量 CSV
+## 流量 CSV
 
 在 `log` 中设置 `traffic` 即可，无需启用 `stats` 或 StatsService：
 
@@ -50,19 +50,20 @@ VLESS fallback 不经过 dispatcher，也没有代理目标域名，故不计入
 表头固定为：
 
 ```csv
-interval_start,interval_end,target,target_ip,uplink_bytes,downlink_bytes
+interval_start,interval_end,target,target_ip,uplink_bytes,downlink_bytes,network
 ```
 
-- 每 60 秒追加一次该区间的增量，仅输出有变化的 `(target, target_ip)`；关闭日志时补写剩余增量。
-- 时间使用 UTC RFC 3339（可带小数秒），两列分别表示本次统计区间的起止时间，不是连接起止时间。
+- 每 60 秒写入一次增量，仅输出有变化的 `(target, target_ip, network)`；关闭日志时补写剩余增量。若同一目标、IP 和连接类型的上一行结束时间恰好等于新批次的开始时间，则合并字节数并延长结束时间。中间有空档、IP 或连接类型不同、或进程重启后的区间不会合并。
+- 时间使用 UTC RFC 3339（可带小数秒），两列表示统计区间的起止时间，不是连接起止时间；合并后可覆盖多个连续区间。
 - `target` 是嗅探后的域名或纯 IP，沿用上述规范化规则。`target_ip` 是直接 freedom TCP 出站实际连接的 IP；同一域名的不同 IP 分行累计。纯 IP 目标直接填入该 IP。域名经其他代理出站、拨号链或 UDP 等无法在当前挂点确认最终 IP 时，此列为空，不会额外 DNS 查询或填入代理服务器 IP。
+- `network` 是目标连接的传输类型（如 `tcp`、`udp`），不是 VLESS 等代理协议，也不是 HTTP/TLS 等应用协议。旧版六列文件与新表头不兼容，应先轮转旧文件或配置新的 CSV 路径；下游读取程序需支持新增列。
 - `target_sld` 不输出。多个用户、多个端口合并统计，fallback 排除。
 - CSV 使用独立增量累计，Stats API 的查询或 reset 不影响它。流量口径仍为转发 payload，包含目标 HTTPS 自身的 TLS 数据，不含入口 TLS、VLESS 头和 Vision padding；Vision splice 保留并计数。
-- 文件始终追加，重启续写，只有空文件才写表头。已有文件表头不匹配或末尾缺少换行时，启动报错而不覆盖历史。
+- 重启续写，只有空文件才写表头。已有文件表头不匹配或末尾缺少换行时，启动报错而不覆盖历史。合并时通过同目录临时文件原子替换 CSV，因此日志目录须可写；文件 inode 会变化，读取程序应重新打开路径。
 - 后台批量写入并执行文件同步，转发过程仅更新内存。运行中写入失败会记录 warning，并保留增量到下次重试；关闭时仍无法写入则返回错误。健康磁盘下，强制结束进程可能丢失最后一个未写入周期；这不等同于逐字节持久化。
 - 每批重新打开路径，支持 rename/create 式日志轮转；新文件仍须允许 Xray 写入。每个 CSV 路径只供一个 Xray 进程使用。
 - 未配置 `traffic` 或设置为空字符串时关闭 CSV。`loglevel` 只控制普通错误日志，`maskAddress` 不处理 CSV 中的目标和 IP。
 
 Docker 应将 `/var/log/xray` 挂载为持久目录，并让镜像运行用户 UID/GID `65532:65532` 可写。配置目录 `/usr/local/etc/xray` 与日志目录分开；新 CSV 默认权限为 `0600`。也可使用自定义路径，但父目录必须存在且可写。文件会持续增长，需按部署需求轮转或归档。
 
-CSV 是增量明细；查看排行时再按 `target` 汇总上下行之和并排序，不重写历史文件。
+CSV 保留非连续区间的明细；查看排行时可按 `target` 汇总上下行之和并排序。合并时需扫描并复制现有文件，文件较大时应及时轮转。

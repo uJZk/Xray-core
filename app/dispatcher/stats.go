@@ -73,7 +73,7 @@ func wrapDomainStats(ctx context.Context, sm stats.Manager, link *transport.Link
 	if domain == "" {
 		return ctx
 	}
-	ctx, traffic := log.TrackTraffic(ctx, domain)
+	ctx, traffic := log.TrackTraffic(ctx, domain, destination.Network.SystemString())
 	if c, _ := sm.GetOrRegisterCounter("domain>>>" + domain + ">>>traffic>>>uplink"); c != nil || traffic != nil {
 		reader := &SizeStatReader{Reader: link.Reader, Counter: c}
 		if traffic != nil {
